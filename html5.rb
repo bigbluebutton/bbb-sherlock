@@ -8,7 +8,12 @@ require 'user_agent_parser'
 require 'optparse'
 require './lib/sherlock'
 
-def print_pretty_json(data)
+def print_pretty_json(options, data)
+  if options[:no_ua] != nil
+    data.delete(:user_agent)
+    data.delete(:client_logger)
+  end
+
   puts JSON.pretty_generate(data) + "\n"
 end
 
@@ -47,62 +52,56 @@ end
 
 def print_meeting_and_user(options, data)
   if options[:json_out] != nil
-    print_pretty_json(data)
+    print_pretty_json(options, data)
   else
     print_table_for_user(data)
   end
 end
 
 def match_meeting_and_user?(options, data)
-  if options[:meeting_id].nil? || data[:meeting_id].nil? ||
-    options[:user_id].nil? || data[:user_id].nil?
-    return false
-  end
-
-  if options[:meeting_id] == data[:meeting_id] &&
+  options[:meeting_id] == data[:meeting_id] &&
     options[:user_id] == data[:user_id]
-    return true
-  end
-
-  return false
 end
 
 def print_meeting(options, data)
   if options[:json_out] != nil
-    print_pretty_json(data)
+    print_pretty_json(options, data)
   else
     print_table_for_meeting(data)
   end
 end
 
+def meeting_option?(options)
+  options[:meeting_id] != nil
+end
+
 def match_meeting?(options, data)
-  if options[:meeting_id].nil? || data[:meeting_id].nil?
-    return false
-  end
-
-  if options[:meeting_id] == data[:meeting_id]
-    return true
-  end
-
-  return false
+  options[:meeting_id] == data[:meeting_id]
 end
 
 def print_all(options, data)
   if options[:json_out] != nil
-    print_pretty_json(data)
+    print_pretty_json(options, data)
   else
     print_table_for_all(data)
   end
 end
 
+def meeting_and_user_option?(options)
+  options[:meeting_id] != nil && options[:user_id] != nil
+end
+
 def what_to_print(options, data)
-  if match_meeting_and_user?(options, data)
-    print_meeting_and_user(options, data)
-  elsif match_meeting?(options, data)
-    print_meeting(options, data)
+  if meeting_and_user_option?(options)
+    if match_meeting_and_user?(options, data)
+      print_meeting_and_user(options, data)
+    end
+  elsif meeting_option?(options)
+    if match_meeting?(options, data)
+      print_meeting(options, data)
+    end
   else
-    #print_all(options, data)
-    puts "NOT HERE"
+    print_all(options, data)
   end
 end
 
@@ -120,8 +119,12 @@ opt_parser = OptionParser.new do |opt|
     options[:user_id] = user_id
   end
 
-  opt.on("-j", "--json JSON", "pring JSON data") do |json_out|
+  opt.on("-j", "pretty json") do |json_out|
     options[:json_out] = json_out
+  end
+
+  opt.on("-n", "No user agent and logger when printing as json") do |no_ua|
+    options[:no_ua] = no_ua
   end
 end
 opt_parser.parse!
